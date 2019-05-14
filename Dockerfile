@@ -1,14 +1,23 @@
-FROM goaldriven/ols-php-app
+FROM goaldriven/alpine-ols-php-app
 
-RUN yum -y install lsphp73-*
+# Install required WordPress php extensions
+RUN apk add --no-cache php7.3-pdo php7.3-pdo_mysql php7.3-mysqli
 
-RUN rm -rf /usr/local/lsws/php/public_html
+# Cleanup document root
+RUN rm -rf /var/lib/litespeed/web/ && mkdir -p /var/lib/litespeed/web/
 
-RUN mkdir -p /usr/local/lsws/php/app/
-COPY --chown=nobody:nobody wordpress/ /usr/local/lsws/php/app/
+# Copy wordpress file
+RUN mkdir -p /var/lib/litespeed/web/
+COPY wordpress/ /var/lib/litespeed/web/
+RUN ln -s /var/lib/litespeed/web/web/ /var/lib/litespeed/web/html
+RUN chown -R lsadm:lsadm /var/lib/litespeed/web/
 
-RUN ln -s /usr/local/lsws/php/app/web/ /usr/local/lsws/php/public_html
+# Copy vhost config file
+RUN rm -f /var/lib/litespeed/conf/vhosts/web/vhconf.conf
+ADD var/lib/litespeed/conf/vhosts/web/vhconf.conf /var/lib/litespeed/conf/vhosts/web/vhconf.conf
 
-WORKDIR /usr/local/lsws/php/app/
+WORKDIR /var/lib/litespeed/web/
 
-RUN composer install
+RUN apk upgrade && /var/lib/litespeed/bin/lswsctrl restart && composer install
+
+EXPOSE 80 443 7080
